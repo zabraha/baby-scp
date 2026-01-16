@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "nodeType": "b",
+      "operation": 10,
+      "onHand": 0
+    },
+    {
+      "id": 10,
+      "nodeType": "o",
+      "leadTime": 10
+    }
+  ],
+  "edges": [
+    {
+      "id": 501,
+      "from": 10,
+      "to": 1,
+      "edgeType": "f",
+      "quantityPer": 1
+    }
+  ],
+  "demands": [
+    {
+      "id": 9001,
+      "priority": 1,
+      "item": 1,
+      "date": 5,
+      "quantity": 50
+    }
+  ]
+}

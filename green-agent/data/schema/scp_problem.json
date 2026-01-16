@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/scp-problem.schema.json",
+  "title": "Supply Chain Planning Problem",
+  "description": "A schema to specify a supply chain planning problem using a property graph of nodes and edges",
+  "type": "object",
+  "$defs": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "id":  { 
+            "description": "The unique id for this node",
+            "type": "integer",
+            "minimum": 1
+        },
+        "nodeType":  { 
+            "description": "The type of this node",
+            "type": "string",
+            "enum": ["b", "ab", "o","ao", "ro", "r","ar"] 
+        }
+      },
+      "required": ["id", "nodeType"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "b" } } },
+          "then": {
+             "properties": {
+                "operation": {
+                    "description": "The id of a node of type operation  'o' or 'ro' or 'ao' to plan to nake the item",
+                    "type": "integer", 
+                    "minimum": 1
+                },
+                "lotSize": { "type": "integer", "minimum": 1 },
+                "onHand": { 
+                    "description": "The initial on hand quantity at this buffer. If not specefied use default value of 0",
+                    "type": "number",
+                    "default": 0
+                }
+             },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ab" } } },
+          "then": {
+             "properties": {
+                "alternates": { 
+                    "description": "Alternates components. Primary has a priority of 1. Substitutes have priority higher than 1",
+                    "type": "array", 
+                    "minItems": 2,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                             "id": { "description": "id of a node of type buffer 'b'", "type": "integer", "minimum": 1 },
+                             "priority": { "description": "priority of this alternate component choice", "type": "integer", "minimum": 1 },
+                             "splitPercentage": {"description": "percentage to split the quanity among alternates of the same priority", "type": "number", "exclusiveMinimum":  0}
+                        },
+                        "required": ["id", "priority"],
+                        "additionalProperties": false
+                    }
+                }
+             },
+            "required": ["alternates"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "o" } } },
+          "then": {
+             "properties": {
+             "leadTime": { "type": "integer", "minimum": 1 }
+             },
+            "required": ["leadTime"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ao" } } },
+          "then": {
+            "properties": {
+                "alternates": { 
+                    "description": "Alternates that are ",
+                    "type": "array", 
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                             "id": { "description": "id of a node of type operation", "type": "integer", "minimum": 1 },
+                             "priority": { "description": "priority of this alternate choice", "type": "integer", "minimum": 1 },
+                             "splitPercentage": {"description": "percentage to split the quanity among alternates of the same priority", "type": "number", "exclusiveMinimum":  0}
+                        },
+                        "required": ["id", "priority"],
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "required": ["primary"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ro" } } },
+          "then": {
+             "properties": {
+                 "steps": { 
+                    "description": "List of operation node ids of the steps of a linear routing in sorted order starting with the first step",
+                    "type": "array", 
+                    "items":{
+                        "description": "id of the node of type operation for the step",
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                }
+             },
+            "required": ["steps"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "r" } } },
+          "then": {
+             "properties": {
+                "buckets": { 
+                    "description": "Time bucketized resource capacity sorted in chronological order",
+                    "type": "array", 
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                             "start": { "type": "integer", "minimum": 0 },
+                             "capacity": { "type": "number", "minimum": 0 }
+                        },
+                        "required": ["start", "capacity"],
+                        "additionalProperties": false
+                    }
+                }
+             },
+            "required": ["buckets"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ar" } } },
+          "then": {
+             "properties": {
+                "alternates": { 
+                    "description": "Alternate resources. Primary has a priority of 1.",
+                    "type": "array", 
+                    "minItems": 2,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                             "id": { "description": "id of a node of type resource 'r'", "type": "integer", "minimum": 1 },
+                             "priority": { "description": "priority of this alternate resource choice", "type": "integer", "minimum": 1 },
+                             "splitPercentage": {"description": "percentage to split the load among alternate resources of the same priority", "type": "number", "exclusiveMinimum":  0}
+                        },
+                        "required": ["id", "priority"],
+                        "additionalProperties": false
+                    }
+                }
+             },
+            "required": ["alternates"],
+            "additionalProperties": false
+          }
+        }
+    ]
+    },
+
+    "edge": {
+      "type": "object",
+      "properties": {
+        "id":  { 
+            "description": "The unique id for this edge",
+            "type": "integer",
+            "minimum": 1
+        },
+        "from":  { 
+            "description": "The id of the node this edge start from",
+            "type": "integer",
+            "minimum": 1
+        },
+        "to":  { 
+            "description": "The id of the node this edge ends",
+            "type": "integer",
+            "minimum": 1
+        },
+        "edgeType":  { 
+            "description": "The type of this edge",
+            "type": "string",
+            "enum": ["f","l"] 
+        }
+      },
+      "required": ["id", "from", "to", "edgeType"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "f" } } },
+          "then": {
+             "properties": {
+                "quantityPer": { 
+                    "description": "number of units of the item consumed or produced per unit of the operation",
+                    "type": "number"
+                }
+             },
+            "required": ["quantityPer"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "l" } } },
+          "then": {
+             "properties": {
+                "quantityPer": { 
+                    "description": "number of units of capacity required per unit of the operation",
+                    "type": "number"
+                }
+             },
+            "required": ["quantityPer"],
+            "additionalProperties": false
+          }
+        }
+       ]
+    },
+    "demand": {
+      "type": "object",
+      "properties": {
+        "id":  { 
+            "description": "The unique id for this demand or forecast",
+            "type": "integer",
+            "minimum": 1
+        },
+        "priority":  { 
+            "description": "The priority of this demand. 1 has the highest priority",
+            "type": "integer",
+            "minimum": 1
+        },
+        "item":  { 
+            "description": "The id of the end item or buffer node this demand",
+            "type": "integer",
+            "minimum": 1
+        },
+        "date":  { 
+            "description": "Requested date",
+            "type": "integer",
+            "minimum": 0
+        },
+       "quantity":  { 
+            "description": "Requested quantity",
+            "type": "number",
+            "minimumExclusive": 0
+        }
+      },
+      "required": ["id", "priority", "item", "date", "quantity"]
+    }
+  },
+  "properties": {
+    "nodes": {
+      "description": "The nodes in a supply chain graphs",
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "description": "The edges that connect the nodes in a supply chain graph",
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "demands": {
+      "description": "The end item demands or forecasts that need to be satisfied",
+      "type": "array",
+      "items": { "$ref": "#/$defs/demand" }
+    }
+  },
+  "required": ["nodes", "edges", "demands"]
+}

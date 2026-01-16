@@ -1,0 +1,110 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "nodeType": "b",
+      "operation": 10,
+      "onHand": 0,
+      "lotSize": 1
+    },
+    {
+      "id": 10,
+      "nodeType": "o",
+      "leadTime": 5
+    },
+    {
+      "id": 20,
+      "nodeType": "ab",
+      "alternates": [
+        {
+          "id": 2,
+          "priority": 1
+        },
+        {
+          "id": 3,
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nodeType": "b",
+      "onHand": 10,
+      "description": "Standard Battery - Limited Stock"
+    },
+    {
+      "id": 3,
+      "nodeType": "b",
+      "onHand": 100,
+      "description": "High-Capacity Battery - Available Substitute"
+    },
+    {
+      "id": 30,
+      "nodeType": "ar",
+      "alternates": [
+        {
+          "id": 100,
+          "priority": 1
+        },
+        {
+          "id": 101,
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "nodeType": "r",
+      "buckets": [
+        {
+          "start": 0,
+          "capacity": 20
+        }
+      ],
+      "description": "Primary Assembly Line"
+    },
+    {
+      "id": 101,
+      "nodeType": "r",
+      "buckets": [
+        {
+          "start": 0,
+          "capacity": 100
+        }
+      ],
+      "description": "Secondary Assembly Line"
+    }
+  ],
+  "edges": [
+    {
+      "id": 501,
+      "from": 10,
+      "to": 1,
+      "edgeType": "f",
+      "quantityPer": 1
+    },
+    {
+      "id": 502,
+      "from": 20,
+      "to": 10,
+      "edgeType": "f",
+      "quantityPer": 1
+    },
+    {
+      "id": 503,
+      "from": 10,
+      "to": 30,
+      "edgeType": "l",
+      "quantityPer": 1
+    }
+  ],
+  "demands": [
+    {
+      "id": 9001,
+      "priority": 1,
+      "item": 1,
+      "date": 15,
+      "quantity": 50
+    }
+  ]
+}

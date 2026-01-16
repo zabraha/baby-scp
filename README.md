@@ -1,0 +1,2 @@
+# A Baby Supply Chain Planning Benchmark
+This project list a green evaluator agents that can evaluate purple agents on supply chain planning tasks. An example purple agent and a kickoff script is provided to test the green agent. After evaluating the purple agents the green agent reports the % pass rate and results on each problem.

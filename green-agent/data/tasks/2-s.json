@@ -1,0 +1,36 @@
+{
+  "demandsSatisfied": [
+    {
+      "id": 9001,
+      "dates": [
+        {
+          "date": 15,
+          "qty": 50
+        }
+      ]
+    }
+  ],
+  "plannedOrders": [
+    {
+      "id": 10,
+      "start": 10,
+      "end": 15,
+      "qty": 10,
+      "selectedAlternates": [2, 100]
+    },
+    {
+      "id": 10,
+      "start": 10,
+      "end": 15,
+      "qty": 10,
+      "selectedAlternates": [3, 100]
+    },
+    {
+      "id": 10,
+      "start": 10,
+      "end": 15,
+      "qty": 30,
+      "selectedAlternates": [3, 101]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/scp-solution.schema.json",
+  "title": "Supply Chain Planning Solution",
+  "description": "A schema to specify the solution or planning output for a supply chain planning problem",
+  "type": "object",
+  "$defs": {
+    "demandSatisfactionDates": {
+      "type": "object",
+      "properties": {
+        "id":  { 
+            "description": "The id of the demand",
+            "type": "integer",
+            "minimum": 1
+        },
+        "dates":  { 
+            "description": "The dates and quantity satisfied sorted in chronological order",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "date": { 
+                        "description": "date on which the full or partial quantity of the demand was satisfied", 
+                        "type": "integer", 
+                        "minimum": 0 
+                    },
+                    "qty": { 
+                        "description": "quantity of the demand satisfied on that date", 
+                        "type": "number", 
+                        "minimumExclusive": 0
+                    }
+                },
+                "required": ["date", "qty"],
+                "additionalProperties": false
+            }
+        }
+      },
+      "required": ["id", "dates"]
+    },
+    "plannedOrder": {
+      "type": "object",
+      "properties": {
+        "id":  { 
+            "description": "The id of the operation node type 'o' plannned.",
+            "type": "integer",
+            "minimum": 1
+        },
+        "start":  { 
+            "description": "The start date of the planned order",
+            "type": "integer",
+            "minimum": 0
+        },
+        "end":  { 
+            "description": "The end date of the planned order",
+            "type": "integer",
+            "minimum": 0
+        },
+        "qty":  { 
+            "description": "The number of units or quantity of the operation planned",
+            "type": "number",
+            "exclusiveMinimum": 0 
+        },
+        "selectedAlternates": {
+            "description": "The node ids of any alternates selected from alternate resources or alternate components for this operation",
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+        }
+      },
+      "required": ["id", "start", "end", "qty"]
+    }
+  },
+  "properties": {
+    "demandsSatisfied": {
+      "description": "The details of how each demand was satisfied",
+      "type": "array",
+      "items": { "$ref": "#/$defs/demandSatisfactionDates" }
+    },
+    "plannedOrders": {
+      "description": "The details of operations planned to satisfy the demands",
+      "type": "array",
+      "items": { "$ref": "#/$defs/plannedOrder" }
+    }
+  },
+  "required": ["demandsSatisfied", "plannedOrders"]
+}
