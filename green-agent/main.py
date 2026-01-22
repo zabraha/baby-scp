@@ -128,7 +128,7 @@ async def handle_message(request: Request):
         }
 
 
-@app.get("/.well-known/agent.json")
+@app.get("/.well-known/agent-card.json")
 async def agent_card():
     return {
         "schema_version": "v1",
