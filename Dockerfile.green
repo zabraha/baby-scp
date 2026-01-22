@@ -4,6 +4,7 @@ WORKDIR /app
 
 # Copy ALL project files (including both agents + pyproject.toml)
 COPY . .
+RUN chmod +x /app/scripts/run-green.sh
 
 RUN pip install --no-cache-dir \
     fastapi \
@@ -17,4 +18,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:9009/.well-known/agent.json || exit 1
 
 # Run from project root (finds green-agent/ as subdirectory)
-ENTRYPOINT ["python", "-m", "uvicorn", "green-agent.main:app", "--host", "0.0.0.0", "--port", "9009"]
+# ENTRYPOINT ["python", "-m", "uvicorn", "green-agent.main:app", "--host", "0.0.0.0", "--port", "9009"]
+ENTRYPOINT ["/app/scripts/run-green.sh"]

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 import uvicorn
 from google import genai
 from dotenv import load_dotenv
+import os
 
 
 load_dotenv() #load gemini api key from .env and initialize the client
@@ -53,7 +54,7 @@ async def handle_message(request: Request):
 
 @app.get("/.well-known/agent-card.json")
 async def agent_card():
-    return {
+    result = {
         "schema_version": "v1",
         "name": "purple-supply-chain-planning-solver", 
         "description": "AgentBeats purple agent using google gemini",
@@ -61,6 +62,12 @@ async def agent_card():
         "endpoints": {"message": "/a2a/message"},
         "tags": ["purple", "solver", "supply chain planning", "google gemini"]
     }
+    # Conditionally add top-level url from env var if set
+    card_url = os.getenv("CARD_URL")
+    if card_url:
+        result["url"] = card_url
+    
+    return result
 
 
 

@@ -5,6 +5,7 @@ from typing import Dict, Any
 import uuid
 import json
 import time
+import os
 
 app = FastAPI()
 
@@ -130,7 +131,8 @@ async def handle_message(request: Request):
 
 @app.get("/.well-known/agent-card.json")
 async def agent_card():
-    return {
+
+    result =  {
         "schema_version": "v1",
         "name": "baby-supply-chain-planning-evaluator",
         "description": "AgentBeats green agent for a baby supply chain planning benchmark",
@@ -138,6 +140,12 @@ async def agent_card():
         "endpoints": {"message": "/a2a/message"},
         "tags": ["green", "evaluator", "supply chain planning"]
     }
+    # Conditionally add top-level url from env var if set
+    card_url = os.getenv("CARD_URL")
+    if card_url:
+        result["url"] = card_url
+    
+    return result
 
 
 
