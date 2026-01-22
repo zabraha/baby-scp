@@ -1,15 +1,28 @@
 from fastapi import FastAPI, Request
 import uvicorn
 from google import genai
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import os
 
+# Read directly from environment (works with AgentBeats scenario.toml)
+keySet = True
+gemini_key = os.getenv("GEMINI_API_KEY")
+if not gemini_key:
+    keySet = False
+    print("WARNING: GEMINI KEY IS NOT SET.")
+    #raise ValueError("GEMINI_API_KEY environment variable is required")
+else:
+    # Configure client with explicit API key
+    genai.configure(api_key=gemini_key)
+    client = genai.Client()
 
-load_dotenv() #load gemini api key from .env and initialize the client
-client = genai.Client()
+#load_dotenv() #load gemini api key from .env and initialize the client
+#client = genai.Client()
 
 
 def solve_scp(question: str)->str:
+    if not keySet:
+        return "{}"
     try:
         response = client.models.generate_content(
         model="gemini-3-flash-preview",
