@@ -14,9 +14,11 @@ RUN pip install --no-cache-dir \
 
 EXPOSE 9009
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:9009/.well-known/agent.json || exit 1
+#HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#    CMD curl -f http://localhost:9009/.well-known/agent-card.json || exit 1
 
 # Run from project root (finds green-agent/ as subdirectory)
 # ENTRYPOINT ["python", "-m", "uvicorn", "green-agent.main:app", "--host", "0.0.0.0", "--port", "9009"]
 ENTRYPOINT ["/app/scripts/run-green.sh"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:9009/health || exit 1

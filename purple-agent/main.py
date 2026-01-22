@@ -69,6 +69,10 @@ async def agent_card():
     
     return result
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 
 
 if __name__ == "__main__":

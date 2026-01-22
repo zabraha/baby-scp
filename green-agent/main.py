@@ -147,6 +147,10 @@ async def agent_card():
     
     return result
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 
 
 with open("green-agent/data/schema/scp_problem.json", "r", encoding="utf-8") as f:
