@@ -1,23 +1,19 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import httpx
-from typing import Dict, Any
-import uuid
 import json
+import httpx
+import uuid
 import time
 import os
 
 app = FastAPI()
 
-class A2AMessage(BaseModel):
-    kind: str
-    parts: list
-    metadata: Dict[str, Any] = {}
-
 class Task(BaseModel):
     id: int
     task_id: str
     prompt: str = ""
+
 
 TASKS = [
     Task(id=1,task_id="p1"),
@@ -27,118 +23,218 @@ TASKS = [
     Task(id=5, task_id="p5"),
 ]
 
-@app.post("/a2a/message")
-async def handle_message(request: Request):
-    body = await request.json()
+async def call_purple_agent(purple_url: str, prompt: str):
+    payload = {
+        "jsonrpc": "2.0",
+        "id": str(uuid.uuid4()),
+        "method": "message/send", 
+        "params": {
+            "message": {
+                "kind": "message",
+                "parts": [{"kind": "text", "text": prompt}]
+            }
+        }
+    }
     
-    if body.get("method") != "message.create":
-        return {"jsonrpc": "2.0", "id": body.get("id"), "error": {"code": -32601}}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(purple_url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            result = data.get("result", {})
+            if "Message" in result:
+                purple_text = result["Message"]["parts"][0]["text"]
+            else:
+                purple_text = "{}"
+            
+            print("Purple response: " + purple_text)
+            return purple_text
+    except Exception as e:
+        print(f"Purple HTTP error: {e}")
+        return f"Error: {e}"
+
+ 
+
+async def green_agent_stream(request_payload):
+
+    if request_payload.get("method") != "message/stream":
+        yield f'data: {json.dumps({"jsonrpc": "2.0", "id": request_payload.get("id"), "error": {"code": -32601}})}\n\n'
+        return
     
-    # Extract from raw dict - NO Pydantic needed
-    task_message = body["params"]["message"]
-    parts = task_message.get("parts", [])
+    # Extract from request
+    params = request_payload.get("params", {})
+    message = params.get("message", {})
+    parts = message.get("parts", [])
+    user_prompt = parts[0].get("text", "") if parts else ""
     
-    # Fix: Use dict access, not object attributes
-    user_prompt = ""
-    if parts and len(parts) > 0 and "text" in parts[0]:
-        user_prompt = parts[0]["text"]
-    
-    purple_url = task_message.get("metadata", {}).get("purple_endpoint", "")
+    # Parse participant config
+    prompt_data = json.loads(user_prompt)
+    purple_url = prompt_data.get("participants", {}).get("supply_chain_planning_agent")
+
+    print("purple url: " + purple_url)
     
     if not purple_url:
-        return {
-            "jsonrpc": "2.0",
-            "id": body["id"],
-            "result": {
-                "kind": "message",
-                "parts": [{"kind": "text", "text": "❌ No purple_endpoint in metadata"}]
-            }
-        }
+        yield f'data: {json.dumps({"jsonrpc": "2.0", "id": request_payload["id"], "error": {"code": -32602}})}\n\n'
+        return
     
+    # Event 1: Task created
+    # Generate IDs
+    request_id = request_payload.get("id")
+    task_id = str(uuid.uuid4())
+    context_id = params.get("contextId")
+    if not context_id:
+        context_id = str(uuid.uuid4())
+    #message_id = str(uuid.uuid4())
+    
+    print("request_id: " + request_id)
+    print("task_id: " + task_id)
+    print("contex_id: " + context_id)
+ 
+
+    # --- PHASE 1: INIT ---
+    # Note: 'id' here is the taskId, 'status' is the TaskStatus object
+    yield f"data: {json.dumps({
+        "jsonrpc": "2.0",
+        "id": request_id, 
+        "result": {
+            "id": "task_3202b913",
+            "contextId": context_id,
+            "status": {"state": "working"}
+        }
+    })}\n\n"
+
     results = []
     passes = 0
+    for i, task in enumerate(TASKS):
 
-    try: 
-        for task in TASKS:  # Run assessment on each task
-            start = time.time()
-            task.prompt = generate(task.id)
-    
-            # Call purple agent
-            purple_payload = {
-                "jsonrpc": "2.0",
-                "id": str(uuid.uuid4()),
-                "method": "message.create",
-                "params": {
-                    "message": {
-                        "kind": "message",
-                        "parts": [{"kind": "text", "text": task.prompt}]
-                    }
+        msg = "Evaluating purple agent on problem: " + str(i) + " of: " + str(len(TASKS)) + " ..."
+
+        # --- PHASE 2: MESSAGE ---
+        yield f"data: {json.dumps({
+            'jsonrpc': '2.0',
+            'id': request_id,
+            'result': {
+                'taskId': task_id,
+                'contextId': context_id,
+                'event': 'TaskStatusUpdateEvent',
+                'final': False,
+                'status': {'state': 'working'},
+                'message': {
+                    'messageId': str(uuid.uuid4()),
+                    'role': 'assistant',
+                    'parts': [{'text': msg}]
                 }
             }
-     
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                purple_resp = await client.post(purple_url, json=purple_payload)
-                purple_resp.raise_for_status()
-                purple_data = purple_resp.json()
-            
-            # Extract purple response safely
-            purple_text = "No response"
-            if (purple_data.get("result") and 
-                "parts" in purple_data["result"] and 
-                len(purple_data["result"]["parts"]) > 0 and 
-                "text" in purple_data["result"]["parts"][0]):
-                purple_text = purple_data["result"]["parts"][0]["text"]
-            
-            # Simple scoring logic
-            print(purple_text)
-            latency = time.time() - start
-            success = score(task.id,purple_text)
-        
-            if success: 
-                passes += 1
-            results.append({"task_id": task.task_id, "success": success, "latency": latency})
-            #score = 1.0 if "PURPLE" in purple_text.upper() else 0.5
-        
-        return {
-            "jsonrpc": "2.0",
-            "id": body["id"],
-            "result": {
-                "kind": "message",
-                "parts": [{
-                    "kind": "data",
-                    "mimeType": "application/json",
-                    "data": {
-                        "domain": user_prompt,
-                        "pass_rate": passes / len(results),
-                        "total_tasks": len(results),
-                        "results": results
-                   }
-                }]
-            }
-        }
-    
-    except Exception as e:
-        return {
-            "jsonrpc": "2.0",
-            "id": body["id"],
-            "result": {
-                "kind": "message",
-                "parts": [{"kind": "text", "text": f"❌ Error calling purple: {str(e)}"}],
-                "metadata": {"score": 0.0}
-            }
-        }
+        })}\n\n"
 
+        start = time.time()
+        task.prompt = generate(task.id)
+        purple_response = await call_purple_agent(purple_url, task.prompt)
+        #purple_response = "{}"
+        success = score(task.id, purple_response)
+        latency = time.time() - start
+        if success: 
+            passes += 1
+        results.append({"task_id": task.task_id, "success": success, "latency": latency})
+
+        # --- PHASE 2: MESSAGE ---
+    yield f"data: {json.dumps({
+        'jsonrpc': '2.0',
+        'id': request_id,
+        'result': {
+            'taskId': task_id,
+            'contextId': context_id,
+            'event': 'TaskStatusUpdateEvent',
+            'final': False,
+            'status': {'state': 'working'},
+            'message': {
+                'messageId': str(uuid.uuid4()),
+                'role': 'assistant',
+                'parts': [{'text': 'Evaluating final response...'}]
+            }
+        }
+    })}\n\n"
+
+   
+    eval_results = {}
+    eval_results["pass_rate"] = passes/len(results)
+    eval_results["total_tasks"] = len(TASKS)
+    eval_results["results"] = results
+    
+    # --- PHASE 3: FINAL ---
+    # --- Artifacts ---
+    yield f"data: {json.dumps({
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "result": {
+            "event": "TaskArtifactUpdateEvent",
+            "taskId": task_id,
+            "contextId": context_id,
+            "final": False,
+            "artifact": {
+                "artifactId": f"results_{task_id}",
+                "parts": [{"data": eval_results}],
+            }
+        }
+    })}\n\n"
+
+    # -- mark status as completed --
+    yield f"data: {json.dumps({
+        'jsonrpc': '2.0',
+        'id': request_id,
+        'result': {
+            'taskId': task_id,
+            'contextId': context_id,
+            'event': 'TaskStatusUpdateEvent',
+            'final': True,
+            'status': {'state': 'completed'},
+            'message': {
+                'messageId': str(uuid.uuid4()),
+                'role': 'assistant',
+                'parts': [{'text': 'Task Completed Successfully'}]
+            }
+        }
+    })}\n\n"
+
+@app.post("/")
+@app.post("/a2a/message")
+async def handle_message(request: Request):        
+    request_payload = await request.json()    
+    return StreamingResponse(
+        green_agent_stream(request_payload),
+        headers={
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 @app.get("/.well-known/agent-card.json")
 async def agent_card():
 
     result =  {
         "schema_version": "v1",
+        "version": "1.0.0",
         "name": "baby-supply-chain-planning-evaluator",
         "description": "AgentBeats green agent for a baby supply chain planning benchmark",
         "protocols": ["a2a"],
         "endpoints": {"message": "/a2a/message"},
-        "tags": ["green", "evaluator", "supply chain planning"]
+        "tags": ["green", "evaluator", "supply chain planning"],
+        "capabilities": {    
+            "llm": True,
+            "chat": True,
+            "streaming": True
+        },
+        "defaultInputModes": ["text"],    # REQUIRED
+        "defaultOutputModes": ["text"],   # REQUIRED
+        "skills": [                        # REQUIRED
+            {
+                "id": "supply-chain-evaluator",
+                "name": "Supply Chain Planning Evaluator",
+                "description": "Evaluates baby supply chain planning solutions",
+                 "tags": ["supply-chain", "evaluator", "planning"]  # REQUIRED
+            }
+        ],
     }
     # Conditionally add top-level url from env var if set
     card_url = os.getenv("CARD_URL")

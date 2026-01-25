@@ -4,6 +4,8 @@ from google import genai
 #from dotenv import load_dotenv
 import os
 
+
+
 # Read directly from environment (works with AgentBeats scenario.toml)
 keySet = True
 gemini_key = os.getenv("GEMINI_API_KEY")
@@ -36,11 +38,14 @@ def solve_scp(question: str)->str:
 
 app = FastAPI()
 
+    
+
+@app.post("/")
 @app.post("/a2a/message")
 async def handle_message(request: Request):
     body = await request.json()
     
-    if body.get("method") != "message.create":
+    if body.get("method") != "message/send":
         return {"jsonrpc": "2.0", "id": body.get("id"), "error": {"code": -32601}}
     
     # Fix: Raw dict access - NO Pydantic
@@ -65,15 +70,32 @@ async def handle_message(request: Request):
         }
     }
 
+    
 @app.get("/.well-known/agent-card.json")
 async def agent_card():
     result = {
         "schema_version": "v1",
+        "version": "1.0.0",
         "name": "purple-supply-chain-planning-solver", 
         "description": "AgentBeats purple agent using google gemini",
         "protocols": ["a2a"],
         "endpoints": {"message": "/a2a/message"},
-        "tags": ["purple", "solver", "supply chain planning", "google gemini"]
+        "tags": ["purple", "solver", "supply chain planning", "google gemini"],
+        "capabilities": {    
+            "llm": True,
+            "chat": True,
+            "streaming": True
+        },
+        "defaultInputModes": ["text"],    # REQUIRED
+        "defaultOutputModes": ["text"],   # REQUIRED
+        "skills": [                        # REQUIRED
+            {
+                "id": "supply-chain-planning-solver",
+                "name": "Supply Chain Planning Solver",
+                "description": "Solves supply chain planning problems and generates feasible plans",
+                 "tags": ["supply-chain-solver", "solver", "planning"]  # REQUIRED
+            }
+        ],
     }
     # Conditionally add top-level url from env var if set
     card_url = os.getenv("CARD_URL")
