@@ -15,8 +15,7 @@ if not gemini_key:
     #raise ValueError("GEMINI_API_KEY environment variable is required")
 else:
     # Configure client with explicit API key
-    genai.configure(api_key=gemini_key)
-    client = genai.Client()
+    client = genai.Client(api_key=gemini_key)
 
 #load_dotenv() #load gemini api key from .env and initialize the client
 #client = genai.Client()
@@ -27,7 +26,7 @@ def solve_scp(question: str)->str:
         return "{}"
     try:
         response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-2.0-flash",
         contents=question)
         content = response.text.strip()
         return content
