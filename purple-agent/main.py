@@ -1,39 +1,128 @@
 from fastapi import FastAPI, Request
 import uvicorn
-from google import genai
-#from dotenv import load_dotenv
 import os
+import json
+import re
+from openai import OpenAI  # pip install openai
 
+url= os.getenv("BASE_URL", "https://api.tokenfactory.nebius.com/v1/")
+model = os.getenv("MODEL", "moonshotai/Kimi-K2-Thinking")
 
-
-# Read directly from environment (works with AgentBeats scenario.toml)
+# Read Nebius API key from environment
 keySet = True
-gemini_key = os.getenv("GEMINI_API_KEY")
-if not gemini_key:
+nebius_key = os.getenv("NEBIUS_API_KEY")
+if not nebius_key:
     keySet = False
-    print("WARNING: GEMINI KEY IS NOT SET.")
-    #raise ValueError("GEMINI_API_KEY environment variable is required")
+    print("WARNING: NEBIUS_API_KEY IS NOT SET.")
+    # raise ValueError("NEBIUS_API_KEY environment variable is required")
 else:
-    # Configure client with explicit API key
-    client = genai.Client(api_key=gemini_key)
+    # Configure OpenAI-compatible client for Nebius Token Factory
+    client = OpenAI(base_url=url,api_key=nebius_key)
 
-#load_dotenv() #load gemini api key from .env and initialize the client
-#client = genai.Client()
-
-
-def solve_scp(question: str)->str:
+def solve_scp(question: str) -> str:
     if not keySet:
         return "{}"
     try:
-        response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=question)
-        content = response.text.strip()
-        return content
+        # Choose an appropriate Nebius model, e.g. a reasoning or instruct model
+        response = client.chat.completions.create(
+            model=model,  # or another model from Nebius
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+                        You are a supply chain planning expert.
+                        Respond with ONLY valid JSON matching the exact schema requested by the user. 
+                        NO explanations, NO thinking, NO markdown except the JSON.
+                        Include <think> tags for reasoning internally but FINAL OUTPUT MUST BE:
+
+                        ```json
+                            {
+                                \"demandsSatisfied\": [...],
+                                \"plannedOrders\": [...]
+                            }
+                        ```
+                    """
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": question
+                        }       
+                    ]
+                }
+            ],
+            response_format={"type": "json_object"}
+        )
+        print("response from llm:", response)
+        content = response.choices[0].message.content
+        
+
+        # Parse response safely
+        try:
+            if response.choices and len(response.choices) > 0:
+                
+                content = response.choices[0].message.content.strip()
+                print("Content:", content)
+                try:
+                    json_data = extract_json_safely(content)
+                    print("Parsed JSON:", json_data)
+                except ValueError as e:
+                    print(f"JSON extraction failed: {e}")
+                    json_data = None
+                if json_data:
+                    json_str = json.dumps(json_data)
+                else:
+                    json_str = "{}"
+                print("json data str:  ", json_str)
+            else:
+                print("No choices in response from llm")
+                json_str = "{}"
+        except json.JSONDecodeError:
+            print("Response is not valid JSON")
+            json_str = "{}"
+        print("response from llm as content: " , json_str)
+        return json_str
     except Exception as e:
-        print("ERROR response from calling LLM  "+ str(e))
+        print("ERROR response from calling LLM " + str(e))
         return "{}"
  
+
+def extract_json_safely(content):
+    """Extract JSON from DeepSeek response (handles both formats)"""
+    # Case 1: Plain JSON
+    try:
+        parsed = json.loads(content)
+        # Handle both array [obj] and plain obj cases
+        if isinstance(parsed, list) and len(parsed) == 1:
+            clean_json = parsed[0]  # Extract single object
+        else:
+            clean_json = parsed     # Already plain object
+        return clean_json
+    except json.JSONDecodeError:
+        pass
+    
+    # Case 2: JSON in ```json block (handles <think> + code block)
+    json_match = re.search(r'```json\s*(\{.*?\})\s*```', content, re.DOTALL | re.IGNORECASE)
+    if json_match:  # ← CHECK IF MATCH EXISTS
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+    
+    # Case 3: Fallback - find any valid JSON object
+    json_match = re.search(r'\{[^{}]*?(?:\{[^{}]*?\}[^{}]*?)*?\}', content, re.DOTALL)
+    if json_match:  # ← CHECK IF MATCH EXISTS
+        try:
+            return json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    
+    print("No valid JSON found in response")
+    return {}
+
+
 
 app = FastAPI()
 
@@ -59,6 +148,7 @@ async def handle_message(request: Request):
     # Your purple agent logic here
     #response = f"PURPLE AGENT: {user_text.upper()} - Processed successfully!"
     response = solve_scp(user_text)
+    print("response text send as rpc:" , response)
     
     return {
         "jsonrpc": "2.0",
@@ -75,11 +165,11 @@ async def agent_card():
     result = {
         "schema_version": "v1",
         "version": "1.0.0",
-        "name": "purple-supply-chain-planning-solver", 
-        "description": "AgentBeats purple agent using google gemini",
+        "name": "scp-kimi-k2-thinking", 
+        "description": "AgentBeats purple agent using nebius token factory and Kimi-K2-Thinking model",
         "protocols": ["a2a"],
         "endpoints": {"message": "/a2a/message"},
-        "tags": ["purple", "solver", "supply chain planning", "google gemini"],
+        "tags": ["purple", "solver", "supply chain planning", "KimiK2"],
         "capabilities": {    
             "llm": True,
             "chat": True,

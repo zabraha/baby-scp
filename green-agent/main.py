@@ -37,16 +37,33 @@ async def call_purple_agent(purple_url: str, prompt: str):
     }
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(purple_url, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
+            print("response from purple: ", resp)
+            print("response TEXT:     ", resp.text)         # Raw JSON string  
+            print("response JSON:     ", resp.json())       # Parsed dict
+            print("response STATUS:   ", resp.status_code)  # 200
+
+            # Check if response indicates JSON
+            content_type = resp.headers.get('content-type', '').lower()
+            is_json = 'application/json' in content_type
+            print("content type from purple: ", content_type)
+            print ("is_json from purple: ", is_json)
+            try:
+                data = resp.json()
+                print("=== DEBUG FULL RESPONSE ===")
+                print("data:", data)
+                print("result:", data.get("result", {}))
+                print("result keys:", list(data.get("result", {}).keys()))
+            except json.JSONDecodeError:
+                print("Invalid JSON received from purple")
+                data = {}
+
             result = data.get("result", {})
-            if "Message" in result:
-                purple_text = result["Message"]["parts"][0]["text"]
+            if "parts" in result and len(result["parts"]) > 0:
+                purple_text = result["parts"][0]["text"]
             else:
-                purple_text = "{}"
-            
+                purple_text = "{}"         
             print("Purple response: " + purple_text)
             return purple_text
     except Exception as e:

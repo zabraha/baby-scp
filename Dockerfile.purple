@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]" \
     httpx \
     google-genai \
+    openai \
     pydantic
 
 EXPOSE 9009
